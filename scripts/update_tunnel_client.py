@@ -34,6 +34,22 @@ version = tag.removeprefix("v")
 url = f"https://github.com/{repo}/releases/download/{tag}/{asset_name}"
 
 content = formula.read_text()
+old_version_match = re.search(r'^  version "([^"]+)"$', content, flags=re.M)
+old_sha_match = re.search(r'^      sha256 "([a-f0-9]+)"$', content, flags=re.M)
+old_revision_match = re.search(r'^  revision (\d+)$', content, flags=re.M)
+if not old_version_match or not old_sha_match:
+    raise SystemExit("Cannot read current Formula version or SHA256")
+old_version, old_checksum = old_version_match.group(1), old_sha_match.group(1)
+old_revision = int(old_revision_match.group(1)) if old_revision_match else 0
+if version == old_version and checksum != old_checksum:
+    new_revision = old_revision + 1
+elif version != old_version:
+    new_revision = 0
+else:
+    new_revision = old_revision
+content = re.sub(r'^  revision \d+\n', '', content, count=1, flags=re.M)
+if new_revision:
+    content = re.sub(r'(^  version "[^"]+"\n)', rf'\g<1>  revision {new_revision}\n', content, count=1, flags=re.M)
 content, count_version = re.subn(r'^  version "[^"]+"$', f'  version "{version}"', content, count=1, flags=re.M)
 content, count_url = re.subn(r'^      url "[^"]+"$', f'      url "{url}"', content, count=1, flags=re.M)
 content, count_sha = re.subn(r'^      sha256 "[^"]+"$', f'      sha256 "{checksum}"', content, count=1, flags=re.M)
